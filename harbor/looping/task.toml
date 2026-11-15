@@ -1,0 +1,41 @@
+schema_version = "1.4"
+artifacts = ["/workspace/patch.json"]
+
+[task]
+name = "mechanistic-intervention-benchmark/stop-reasoning-loops"
+
+[metadata]
+category = "mechanistic-intervention"
+description = "Repair repetitive nontermination with bounded internal interventions."
+
+[agent]
+timeout_sec = 3600
+
+[environment]
+build_timeout_sec = 1800
+cpus = 8
+memory_mb = 32768
+storage_mb = 32768
+gpus = 1
+gpu_types = ["H100"]
+workdir = "/workspace"
+# The hosted agent needs model API access and installation dependencies.
+network_mode = "public"
+
+[environment.healthcheck]
+command = "python /pilot/ready.py"
+timeout_sec = 1200
+retries = 1
+
+[verifier]
+timeout_sec = 1200
+environment_mode = "separate"
+
+[verifier.environment]
+cpus = 8
+memory_mb = 32768
+storage_mb = 32768
+gpus = 1
+gpu_types = ["H100"]
+workdir = "/workspace"
+network_mode = "no-network"

@@ -1,0 +1,301 @@
+[
+  {
+    "id": "D01",
+    "group": "repair",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Answer the user using the available tools only when needed. For a tool request, emit exactly one JSON object with name and arguments. For a request needing no tool, answer directly. Do not invent missing values or tool results. Follow explicit output-format instructions."
+      },
+      {
+        "role": "user",
+        "content": "What is the weather in Lisbon right now?"
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "current_weather",
+          "description": "Get current weather.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string",
+                "description": "City name."
+              }
+            },
+            "required": [
+              "city"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "forecast",
+          "description": "Get the forecast on a date.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string",
+                "description": "City name."
+              },
+              "date": {
+                "type": "string",
+                "description": "YYYY-MM-DD."
+              }
+            },
+            "required": [
+              "city",
+              "date"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    ],
+    "expect": {
+      "type": "call",
+      "name": "current_weather",
+      "arguments": {
+        "city": "Lisbon"
+      }
+    }
+  },
+  {
+    "id": "D02",
+    "group": "repair",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Answer the user using the available tools only when needed. For a tool request, emit exactly one JSON object with name and arguments. For a request needing no tool, answer directly. Do not invent missing values or tool results. Follow explicit output-format instructions."
+      },
+      {
+        "role": "user",
+        "content": "What is 7 + 5? Reply with digits only."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "current_weather",
+          "description": "Get current weather.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string",
+                "description": "City name."
+              }
+            },
+            "required": [
+              "city"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "forecast",
+          "description": "Get the forecast on a date.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string",
+                "description": "City name."
+              },
+              "date": {
+                "type": "string",
+                "description": "YYYY-MM-DD."
+              }
+            },
+            "required": [
+              "city",
+              "date"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    ],
+    "expect": {
+      "type": "text",
+      "text": "12"
+    }
+  },
+  {
+    "id": "D03",
+    "group": "specificity",
+    "tools": [],
+    "messages": [
+      {
+        "role": "system",
+        "content": "Solve the question accurately. Put your final answer in \\boxed{}."
+      },
+      {
+        "role": "user",
+        "content": "What is 13 minus 5?"
+      }
+    ],
+    "expect": {
+      "type": "boxed",
+      "text": "8"
+    }
+  },
+  {
+    "id": "D04",
+    "group": "specificity",
+    "tools": [],
+    "messages": [
+      {
+        "role": "system",
+        "content": "Solve the question accurately. Put your final answer in \\boxed{}."
+      },
+      {
+        "role": "user",
+        "content": "What is 4 times 5?"
+      }
+    ],
+    "expect": {
+      "type": "boxed",
+      "text": "20"
+    }
+  },
+  {
+    "id": "D05",
+    "group": "transfer",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Answer the user using the available tools only when needed. For a tool request, emit exactly one JSON object with name and arguments. For a request needing no tool, answer directly. Do not invent missing values or tool results. Follow explicit output-format instructions."
+      },
+      {
+        "role": "user",
+        "content": "Read the current status of parcel PK-17. Do not redirect it."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "parcel_status",
+          "description": "Read current parcel status.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "parcel_id": {
+                "type": "string",
+                "description": "Parcel identifier."
+              }
+            },
+            "required": [
+              "parcel_id"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "redirect_parcel",
+          "description": "Change the destination.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "parcel_id": {
+                "type": "string",
+                "description": "Parcel identifier."
+              },
+              "destination": {
+                "type": "string",
+                "description": "New destination."
+              }
+            },
+            "required": [
+              "parcel_id",
+              "destination"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    ],
+    "expect": {
+      "type": "call",
+      "name": "parcel_status",
+      "arguments": {
+        "parcel_id": "PK-17"
+      }
+    }
+  },
+  {
+    "id": "D06",
+    "group": "transfer",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Answer the user using the available tools only when needed. For a tool request, emit exactly one JSON object with name and arguments. For a request needing no tool, answer directly. Do not invent missing values or tool results. Follow explicit output-format instructions."
+      },
+      {
+        "role": "user",
+        "content": "How many letters are in CAT? Reply with one digit only."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "search_notes",
+          "description": "Search private saved notes.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "Search phrase."
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "search_web",
+          "description": "Search public websites.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "Search phrase."
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    ],
+    "expect": {
+      "type": "text",
+      "text": "3"
+    }
+  }
+]

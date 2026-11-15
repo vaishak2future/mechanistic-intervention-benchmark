@@ -1,4 +1,14 @@
-# Improve MobileLLM
+# Mechanistic Intervention Benchmark
+
+The current experiment is documented in the [submission draft](submission/README.draft.md),
+with [results](submission/results.svg), a [submission checklist](submission/CHECKLIST.md),
+and a [local leaderboard and unified trace viewer](viewer/README.md).
+The opening overview in the draft is reserved for the author's own writing.
+
+The material below describes the earlier weight-training experiment and is retained
+for reference. It does not describe the current constrained-intervention task.
+
+## Earlier experiment: Improve MobileLLM
 
 One agent gets model weights, an H100 and ten minutes to improve tool calling.
 Valkyrie runs the agent, records its trace, invokes our verifier and stores results.

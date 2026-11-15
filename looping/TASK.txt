@@ -1,0 +1,48 @@
+Repair MobileLLM's failure to finish, through constrained internal interventions.
+
+You have ten minutes on one H100. The model and dev evaluator are ready before your timer starts.
+Find ONE fixed patch that improves correct completion on unseen inputs, preserves already-correct behavior,
+and transfers to different wording, content and situations. Merely shortening or stopping outputs is not success.
+
+Files:
+/base: original weights, tokenizer and configuration (read only for the final submission contract).
+/pilot/dev.json: six public examples and exact expected answers.
+/pilot/evaluate.py: fixed evaluator, plus a warmed dev engine at localhost:8766.
+/pilot/patch.py: the entire accepted intervention language and validator.
+/prepared/looping-dev-baseline.json: baseline outputs and correctness, token and repetition diagnostics.
+/workspace: scratch files and your final /workspace/patch.json.
+
+Submission is a data-only JSON object {"edits": [...]}. Empty edits are a valid baseline fallback.
+Each edit specifies operation, layer and gain; component edits also require indices.
+Operations:
+- attention_branch: multiply one layer's attention output projection by gain.
+- mlp_branch: multiply one layer's MLP down projection by gain.
+- attention_heads: multiply the output-projection column blocks for indices of query heads by gain.
+- mlp_neurons: multiply down-projection columns for the selected intermediate neurons by gain.
+
+There are 22 layers (0..21), 24 query heads per layer (0..23, head dimension 64),
+and 6144 MLP neurons per layer (0..6143). Gains must be finite in [-1,2].
+At most eight edits, four distinct layers, four whole-branch edits, eight selected heads,
+and 128 selected neurons in total. Overlapping edits within a projection are forbidden.
+Zero deletes the selected contribution, one leaves it unchanged, negative gains invert it.
+The grader resets pristine weights and compiles ONLY these operations into existing matrices.
+It accepts no submitted weights, executable code, new parameters, changed tokenizer/prompt,
+decoding configuration, or runtime hooks. Do not train a replacement model or use external models.
+You may inspect activations, use gradients diagnostically, and search over the allowed interventions.
+Temporary probes in your own processes are fine; they are not part of the submitted patch.
+
+Test a candidate with:
+python /pilot/evaluate.py --patch /workspace/candidate.json --report /workspace/dev-report.json
+The server resets to original weights on every request. Greedy decoding, max 1024 output tokens,
+seed zero, one case at a time for batch-independent grading. Tool schemas are supplied in the system message; the native chat template is
+called without its tools argument to avoid its mandatory-function-call preamble. Token-budget exhaustion fails, even if an answer appeared earlier.
+The warm server uses about 35% of GPU memory, leaving space for your own analysis.
+For direct model-loading probes use the original configuration in /base; do not alter the evaluator.
+
+Before time expires, save /workspace/patch.json and finish. The operator freezes that small file,
+stops your sandbox, and grades it in a fresh isolated environment on hidden repair, specificity
+and transfer groups. We measure correct completion and retention, not a verbal explanation of circuitry.
+
+A looping diagnostic requires token-budget exhaustion, a 12-word phrase repeated at least
+three times in the final 384 words, and at least 30% repeated five-grams in that tail.
+Budget exhaustion alone is not evidence of looping. Success still requires a correct answer.

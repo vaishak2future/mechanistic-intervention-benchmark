@@ -1,0 +1,5 @@
+name: mobilellm-looping-transfer-v1
+install_cmd: "true"
+final_output: /logs
+run_cmd: >-
+  python /bundle/mobilellm-looping-transfer-v1/submit.py "{problem_statement_path}"
