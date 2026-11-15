@@ -1,4 +1,4 @@
-"""Run only in a Modal image build; pin and download the starting model there."""
+"""Pin and download the starting model during the cloud image build."""
 
 import argparse
 import json

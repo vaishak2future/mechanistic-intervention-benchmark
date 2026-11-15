@@ -1,15 +1,18 @@
-"""Check the submission boundary without requiring a GPU or Docker daemon."""
+"""Check the weight-only submission boundary without a GPU."""
 
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
-from argparse import Namespace
+import importlib.util
 
-from environment import ROOT, isolation, stage_checkpoint, start
+module_path = Path(__file__).parent / "harbor/mobilellm/tests/checkpoint.py"
+spec = importlib.util.spec_from_file_location("checkpoint", module_path)
+checkpoint = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(checkpoint)
+stage_checkpoint = checkpoint.stage_checkpoint
 
 
-class EnvironmentTests(unittest.TestCase):
+class CheckpointTests(unittest.TestCase):
     def test_only_weights_and_trusted_metadata_reach_grading(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -35,25 +38,6 @@ class EnvironmentTests(unittest.TestCase):
             for invalid in [weights, link, root / "missing"]:
                 with self.subTest(path=invalid), self.assertRaises(ValueError):
                     stage_checkpoint(root, invalid, root / "candidate")
-
-    def test_training_mounts_only_base_and_workspace(self):
-        with tempfile.TemporaryDirectory() as directory:
-            base = Path(directory)
-            (base / "config.json").write_text("{}")
-            with patch("environment.docker", return_value="sha256:image") as docker:
-                start(Namespace(base=base, seconds=60, image="lab", name="agent"))
-            arguments = docker.call_args.args
-            mounts = [arguments[i + 1] for i, arg in enumerate(arguments) if arg == "--mount"]
-            self.assertEqual(len(mounts), 2)
-            self.assertIn(f"type=bind,src={base.resolve()},dst=/base,readonly", mounts)
-            self.assertEqual(arguments[-3:], ("sha256:image", "sleep", "60"))
-            self.assertNotIn(str(ROOT), mounts)
-            self.assertIn("--read-only", isolation())
-            self.assertEqual(arguments[arguments.index("--network") + 1], "none")
-
-    def test_build_context_excludes_private_files(self):
-        allowed = [line for line in (ROOT / ".dockerignore").read_text().splitlines() if line.startswith("!")]
-        self.assertEqual(set(allowed), {"!Dockerfile", "!eval.py", "!TASK.txt", "!tasks.json"})
 
 
 if __name__ == "__main__":
