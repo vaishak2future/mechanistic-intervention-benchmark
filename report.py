@@ -100,49 +100,58 @@ def trace_section(path, started_at):
     if not path.exists():
         return '<h2 id="trace">Agent trace</h2><p class="muted">No trace recorded for this run.</p>'
     events = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-    actions = [dict(event, results=[]) for event in events if event['event'] == 'action']
-    unmatched = []
+    events.sort(key=lambda event: event['time'])
+    actions, finished, entries = [], set(), []
     for event in events:
-        if event['event'] not in {'result', 'error'}:
-            continue
-        candidates = [action for action in actions if not action['results'] and action['time'] <= event['time']]
-        if event.get('action_id'):
-            candidates = [action for action in candidates if action.get('action_id') == event['action_id']]
-        elif candidates:
-            # Older traces lack IDs; execution duration disambiguates overlapping commands.
-            began = event['time'] - event.get('duration_seconds', 0)
-            candidates = [min(candidates, key=lambda action: abs(action['time'] - began))]
-        if candidates:
-            candidates[0]['results'].append(event)
-        else:
-            unmatched.append(event)
-    entries = []
-    for number, action in enumerate(actions, 1):
-        elapsed = max(0, action['time'] - started_at)
-        title = f"{number:02d} · {int(elapsed // 60)}:{int(elapsed % 60):02d} · {escape(action.get('note') or 'Command')}"
-        content = code(shlex.join(action.get('command', [])))
-        for result in action['results']:
-            content += f"<p class='muted'>Exit {escape(result.get('exit_code', 'error'))} · {result.get('duration_seconds', 0):.1f}s</p>"
-            for field in ('stdout', 'stderr', 'message'):
-                if result.get(field):
-                    content += f'<h3>{field}</h3>' + code(result[field])
-        entries.append((action['time'], details(title, content)))
-    messages = []
-    for event in events:
-        if event['event'] == 'agent_message':
-            elapsed = max(0, event['time'] - started_at)
-            timing = ('Archived after run; original timestamp unavailable' if event.get('archived_after_run')
-                      else f'{int(elapsed // 60)}:{int(elapsed % 60):02d}')
+        elapsed = max(0, event['time'] - started_at)
+        timing = ('Archived after run; original timestamp unavailable' if event.get('archived_after_run')
+                  else f'{int(elapsed // 60)}:{int(elapsed % 60):02d}')
+        kind = event['event']
+        if kind == 'agent_message':
             message = escape(event['message']).replace('\n', '<br>')
-            messages.append(f'<article><h3>Agent update · {timing}</h3><p>{message}</p></article>')
-    for event in unmatched:
-        entries.append((event['time'], details('Unpaired trace result', code(json.dumps(event, indent=2)))))
+            entries.append(f'<article><h3>{timing} · Agent</h3><p>{message}</p></article>')
+        elif kind == 'action':
+            actions.append(event)
+            number = len(actions)
+            title = f"{timing} · Tool call {number:02d} · {escape(event.get('note') or 'Command')}"
+            entries.append(f'<div id="call-{number}">' + details(title, code(shlex.join(event.get('command', [])))) + '</div>')
+        elif kind in {'result', 'error'} and (event.get('action_id') or kind == 'result'):
+            candidates = [(i, action) for i, action in enumerate(actions, 1) if i not in finished]
+            if event.get('action_id'):
+                candidates = [(i, action) for i, action in candidates if action.get('action_id') == event['action_id']]
+            if candidates:
+                began = event['time'] - event.get('duration_seconds', 0)
+                number, _ = min(candidates, key=lambda pair: abs(pair[1]['time'] - began))
+                finished.add(number)
+                label = f'Tool result {number:02d}'
+                content = f'<p><a href="#call-{number}">View call {number:02d}</a></p>'
+            else:
+                label, content = 'Unpaired tool result', ''
+            content += f"<p class='muted'>Exit {escape(event.get('exit_code', 'error'))} · {event.get('duration_seconds', 0):.1f}s</p>"
+            for field in ('stdout', 'stderr', 'message'):
+                if event.get(field):
+                    content += f'<h3>{field}</h3>' + code(event[field])
+            entries.append(details(f'{timing} · {label}', content))
+        else:
+            entries.append(details(f'{timing} · {escape(kind.replace("_", " "))}',
+                                   code(event.get('message', json.dumps(event, indent=2)))))
     return (f'<h2 id="trace">Agent trace · {len(actions)} actions</h2>'
-            '<p class="muted">Public agent updates, action summaries, commands, and outputs; private internal reasoning is not exposed. Times are relative to agent start; command durations may overlap.</p>'
-            + f'<h3 id="agent-messages">Agent messages · {len(messages)}</h3>'
-            + (''.join(messages) or '<p class="muted">No public agent messages were recorded for this run.</p>')
-            + '<h3>Commands and outputs</h3>'
-            + ''.join(content for _, content in sorted(entries, key=lambda entry: entry[0])))
+            '<p class="muted">One chronological transcript of public agent messages, tool calls, and results. '
+            'Tool details are expandable. Private internal reasoning is not recorded.</p>'
+            + ''.join(entries))
+
+
+def render_live_trace(run):
+    """Refresh a standalone transcript after each event, before grading exists."""
+    state = json.loads((run / 'state.json').read_text())
+    content = trace_section(run / 'trace.jsonl', state.get('started_at', 0))
+    document = ('<!doctype html><html lang="en"><meta charset="utf-8">'
+                '<meta name="viewport" content="width=device-width,initial-scale=1">'
+                '<title>Agent trace</title><style>' + STYLE + '</style><body>'
+                + content + '</body></html>')
+    temporary = run / 'trace.html.tmp'
+    temporary.write_text(document)
+    temporary.replace(run / 'trace.html')
 
 
 def render_report(run, task_path=None):
@@ -156,7 +165,7 @@ def render_report(run, task_path=None):
     delta = 100 * (submission['score'] - baseline['score'])
     content = ('<h1>MobileLLM evaluation</h1>'
                f'<p class="muted">Hidden holdout · {len(submission["tasks"])} tasks · {total} samples · {escape(state["gpu"])}</p>'
-               '<nav><a href="#tasks">Task results</a> · <a href="#agent-messages">Agent messages</a> · <a href="#trace">Command trace</a> · <a href="#protocol">Protocol</a></nav>'
+               '<nav><a href="#tasks">Task results</a> · <a href="#trace">Agent trace</a> · <a href="#protocol">Protocol</a></nav>'
                '<table><thead><tr><th>Baseline</th><th>Submission</th><th>Change</th></tr></thead>'
                f'<tbody><tr><td>{percent(baseline["score"])}</td><td><strong>{percent(submission["score"])}</strong></td><td>{delta:+g} pp</td></tr></tbody></table>')
     if failures:

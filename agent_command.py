@@ -1,6 +1,7 @@
 """Recorded command interface for a smoke-test agent; all commands run remotely."""
 
 import argparse
+import fcntl
 import json
 import sys
 import time
@@ -9,9 +10,14 @@ from pathlib import Path
 
 
 def record(run: Path, event: dict) -> None:
-    event = {"time": time.time(), **event}
     with (run / "trace.jsonl").open("a") as trace:
+        # The runner and remote-command bridge share one ordered, append-only log.
+        fcntl.flock(trace, fcntl.LOCK_EX)
+        event = {"time": time.time(), "event_id": uuid.uuid4().hex, **event}
         trace.write(json.dumps(event) + "\n")
+        trace.flush()
+        from report import render_live_trace
+        render_live_trace(run)
 
 
 def main() -> None:

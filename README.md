@@ -39,8 +39,7 @@ runs. Build time is billable preparation time, outside the agent budget.
 
 ```sh
 python modal_environment.py --run runs/h100 start --seconds 3600 --agent-model gpt-6.1-sol --agent-reasoning high
-python modal_environment.py --run runs/h100 exec cat /task/TASK.txt
-python modal_environment.py --run runs/h100 exec ls /workspace
+python run_agent.py --run runs/h100
 ```
 
 Starting creates an offline H100 sandbox with a private workspace Volume. Before
@@ -52,19 +51,37 @@ deadline even if the laptop disconnects. A longer platform timeout is a fallback
 if preparation or the watchdog fails. Commands and late submissions are also
 checked against the deadline by the controller.
 
-Give the external agent `/task/TASK.txt` and a command tool connected to the
-`exec` subcommand. Do not expose the operator's shell, this repository, Modal
-credentials, hidden tasks, or grade/stop commands to the evaluated agent.
-The agent controller itself is not included; connect your preferred agent.
-Starting requires an explicit model ID and reasoning effort. These are recorded
-in run state and reports; the caller must pass the identical values to its runner.
-A backend snapshot revision is left unknown unless the runner exposes it. The
-smoke runner uses a fresh-context Codex subagent with explicit model overrides.
-Route commands through `agent_command.py --run RUN --note 'action summary' -- COMMAND`.
-Record public agent updates with `agent_command.py --run RUN --message 'progress update'`.
-The runner must forward these updates; the command wrapper cannot capture text
-sent through another channel. Reports show updates alongside commands and outputs,
-without private internal reasoning.
+`run_agent.py` uses an authenticated Codex CLI and passes the model ID and
+reasoning effort from run state directly to it. It starts a fresh session in an
+empty temporary directory, disables the host shell, web search and subagents,
+and exposes the timed H100 command interface through `modal_agent_tool.py`.
+The agent reads `/task/TASK.txt` remotely. Credentials and hidden data stay with
+the operator. A backend snapshot revision remains unknown unless exposed by the runner.
+
+Public messages are captured automatically from `codex exec --json` as each
+message completes. The tool bridge records calls and results in the same
+append-only `trace.jsonl`, with IDs to match results to calls. Writers are locked
+so concurrent events cannot corrupt the log. Reasoning events are discarded;
+the agent does not need to call a logging tool or repeat its messages.
+
+`trace.html` refreshes on disk after each event; reload it to see progress before
+grading. The final report uses the same single chronological transcript, with
+messages inline and expandable tool details. Results appear when they finish,
+so overlapping calls do not reorder messages. Runner errors are recorded too.
+The CLI is stopped 15 seconds before the sandbox deadline to leave time for
+operator submission; the cloud watchdog remains authoritative.
+
+Earlier smoke runs used the desktop subagent interface, which did not supply a
+consumable event stream to this recorder. Their manually recovered messages
+retain an explicit unknown-original-timestamp label; no ordering is invented.
+Use `run_agent.py` for subsequent runs to get automatic capture. It requires
+the Codex CLI and the dependencies in `requirements-modal.txt` on the controller.
+The runner is covered by local fixtures and has completed an H100 smoke run
+with automatic message capture. Its remote command tool is explicitly approved;
+other host execution tools remain disabled.
+
+The capture format follows [Codex's JSONL event stream](https://developers.openai.com/codex/noninteractive/).
+The unified transcript follows [Inspect's message-history view](https://inspect.aisi.org.uk/log-viewer.html#messages).
 
 ## Warmup limits
 

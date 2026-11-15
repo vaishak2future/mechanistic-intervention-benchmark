@@ -40,12 +40,14 @@ class ReportTests(unittest.TestCase):
             ]
             path.write_text('\n'.join(json.dumps(event) for event in events))
             output = trace_section(path, 0)
-            self.assertLess(output.index('FIRST OUTPUT'), output.index('Second'))
+            self.assertGreater(output.index('FIRST OUTPUT'), output.index('SECOND OUTPUT'))
             self.assertGreater(output.index('SECOND OUTPUT'), output.index('Second'))
             self.assertIn('Public update &lt;safe&gt;', output)
             self.assertLess(output.index('Public update'), output.index('Second'))
-            self.assertIn('Agent messages · 1', output)
-            self.assertLess(output.index('Public update'), output.index('Commands and outputs'))
+            self.assertLess(output.index('First'), output.index('Public update'))
+            self.assertNotIn('Agent messages ·', output)
+            self.assertNotIn('Commands and outputs', output)
+            self.assertIn('Tool result 02', output)
 
     def test_recorded_smoke_totals(self):
         run = Path('runs/smoke-10m')
