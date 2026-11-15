@@ -23,14 +23,18 @@ python /task/eval.py --model /workspace/checkpoint \
 The base model also has a warmed evaluator at `/task/warm_eval.py`. It sleeps
 between requests to release GPU memory. Changed checkpoints load in a fresh process.
 
-Save your final **full model weights** to:
+Save your final full model as a single safetensors file, then package it:
 
-```text
-/workspace/submission/model.safetensors
+```sh
+python /task/submit.py /workspace/checkpoint/model.safetensors
 ```
 
-Only this file is accepted. The original model configuration, tokenizer,
-chat template and evaluator stay fixed. Adapters alone are not a submission.
+This writes a checksum manifest and up to ten 400 MiB parts under
+`/workspace/submission`. Use a fresh output directory; if replacing an earlier
+submission, remove that directory first. The verifier rejoins the parts and
+checks their size and SHA-256 before loading the weights. These are transport
+parts, not Transformers tensor shards. Adapters alone are not a submission.
+The original configuration, tokenizer, chat template and evaluator stay fixed.
 
 After your run ends, an isolated verifier evaluates the submitted weights on
 hidden tasks. Each task gets four sampled answers. Every answer is graded:

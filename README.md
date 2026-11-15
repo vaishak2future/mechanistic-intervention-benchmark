@@ -7,7 +7,7 @@ This repository contains the task and grading logic—not a separate runner or v
 ## Task
 
 - **Input:** pinned MobileLLM-R1-950M weights, 10 dev examples and an evaluator.
-- **Submission:** `/workspace/submission/model.safetensors`, containing full weights.
+- **Submission:** full safetensors weights, split into checksummed parts by `/task/submit.py`.
 - **Evaluation:** 10 hidden tasks, each sampled four times.
 - **Reward:** submitted success rate minus the cached baseline success rate.
 
@@ -25,11 +25,11 @@ uv tool install valkyrie-cli
 valkyrie whoami                 # Run valkyrie login only if needed.
 valkyrie org use hackathon-studentt-565bbbff14
 
-python3 package_harbor.py --output build/v2
-valkyrie dataset push mobilellm/weight-improvement build/v2 --tag v2
+python3 package_harbor.py --output build/sharded-v3
+valkyrie dataset push mobilellm/weight-improvement build/sharded-v3 --tag v3
 
 valkyrie run start --agent codex-mobilellm-v1 \
-  --dataset mobilellm/weight-improvement@v2 \
+  --dataset mobilellm/weight-improvement@v3 \
   --model gpt-6.1-sol --provider modal \
   -s OPENAI_API_KEY openai-api-key --concurrency 1 --connect
 ```
@@ -50,6 +50,7 @@ Watch shared traces with `valkyrie tui`; retrieve scores with
 | `package_harbor.py` | Assemble a self-contained upload package |
 | `prepare_valkyrie_agent.py` | Configure the official Codex package for our model |
 | `test_*.py` | Lightweight local checks |
+| `checks/transfer/` | Submit unchanged base weights to test hosted transfer and grading |
 
 `private/`, `build/` and `runs/` are ignored by Git. Hidden tasks remain versioned
 on `local/private-holdout`. Packaging includes them only in the verifier folder,
@@ -64,7 +65,7 @@ The portable image warms GPU caches during setup; it does not reuse the old nati
 Modal image's baked caches.
 
 The hosted agent needs network access for installation and its model API.
-The verifier uses a fresh, offline environment. Only the submitted weight file is
+The verifier uses a fresh, offline environment. Only the submitted weight parts and checksum manifest are
 transferred; configuration, tokenizer and evaluator come from trusted sources.
 The cached baseline is checked against the holdout and evaluator fingerprints.
 
@@ -92,34 +93,41 @@ valkyrie agent push build/agents/codex-mobilellm-v1
 python3 -m unittest -q
 ```
 
-No GPU is needed for these checks. The first hosted run verified H100 allocation
-and pre-timer readiness, but Valkyrie rejected the 1.9 GB checkpoint during transfer
-to the separate verifier (`size limit exceeded`). Hidden grading remains blocked
-until that transfer limit is resolved; do not treat the package as end-to-end validated.
+No GPU is needed for these checks.
 
-### Checkpoint handoff status
+## Check transfer and grading without training
 
-Valkyrie's public tracker source sets `MAX_ARTIFACT_BYTES` to 512 MiB. Its Modal
-adapter supports volumes, but the Harbor dataset configuration and separate-verifier
-creation path do not forward volume mounts. Adding a mount to `task.toml` alone
-is not a supported fix.
+The small scripted agent below submits unchanged base weights. It uses no model
+API or training, but runs the actual H100 readiness, artifact transfer and hidden
+verifier through Valkyrie. All model files remain in the cloud.
 
-A CPU-only Modal test transferred 1,899,395,112 random bytes through a v2 Volume
-between two offline sandboxes in 21 seconds. The SHA-256 hashes matched; the reader
-could not write or see the sibling run folder. Both sandboxes and the volume were
-deleted. Evidence and the reproduction script are in ignored `runs/valkyrie/`.
-This validates storage, not the hosted Harbor integration or GPU grading.
+```sh
+valkyrie agent push checks/transfer
+valkyrie run start --agent mobilellm-transfer-check-v1 \
+  --dataset mobilellm/weight-improvement@v3 --provider modal \
+  --concurrency 1 --connect
+```
 
-To use volumes, Valkyrie must expose mounts in the dataset environment schema and
-forward them to both generation and separate-verifier creation. Use a unique
-submission folder per attempt, persist writes and stop the writer before grading,
-mount that folder read-only in the verifier, and delete it after results are saved.
-The checkpoint must then be removed from `artifacts` to avoid the archive limit.
-Keep hidden tests outside the shared volume and do not give the agent Modal credentials.
+Valkyrie's 512 MiB limit applies to each artifact, not the entire submission.
+The submission helper splits a single safetensors file into at most ten 400 MiB
+transport parts. Each part is explicitly declared in `task.toml`; do not replace
+those declarations with the containing directory, which would create one archive.
+The verifier checks regular files, size limits and the reconstructed SHA-256,
+then loads the original safetensors bytes with trusted model metadata.
 
-Source inspected: [Valkyrie tracker, b04b9fa](https://github.com/vals-ai/valkyrie/tree/b04b9fac1b5a3ef3dc2703d8e7bd038923a437f0/services/tracker/src/tracker/services/datasets).
-After the provider integration is available, test it through a CPU-only hosted task
-before running another H100 training task.
+Use a fresh `/workspace/submission` directory when packaging. The helper accepts
+full weights, not an adapter or an already-sharded Transformers directory.
+The maximum submission size is 4,000 MiB. Missing, corrupt and oversized parts fail
+validation. No Modal volume integration is required.
+
+Validated on hosted Valkyrie with dataset v3, run
+`20f0f4c9-bbcf-4039-93a6-8d5d4c6e51d5`: ten parts transferred a 3,798,766,415-byte
+unchanged checkpoint, reconstruction passed SHA-256 validation, and the isolated
+H100 verifier scored 25%, matching the cached 25% baseline (reward 0). No training
+or agent-model API calls ran. Both sandboxes were removed and the Modal app stopped.
+The run took about 25 minutes; archive handling and transfer dominated, while
+packaging took four seconds and generation of the 40 graded answers took 13 seconds.
+Small result, trace and cleanup records are under ignored `runs/sharded-transfer/`.
 
 References: [Valkyrie](https://docs.valkyrie.vals.ai/get-started/quickstart),
 [Harbor task format](https://docs.harborframework.com/tasks/overview),

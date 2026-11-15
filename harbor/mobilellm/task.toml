@@ -1,5 +1,17 @@
 schema_version = "1.4"
-artifacts = ["/workspace/submission/model.safetensors"]
+artifacts = [
+  "/workspace/submission/manifest.json",
+  "/workspace/submission/weights.01",
+  "/workspace/submission/weights.02",
+  "/workspace/submission/weights.03",
+  "/workspace/submission/weights.04",
+  "/workspace/submission/weights.05",
+  "/workspace/submission/weights.06",
+  "/workspace/submission/weights.07",
+  "/workspace/submission/weights.08",
+  "/workspace/submission/weights.09",
+  "/workspace/submission/weights.10",
+]
 
 [task]
 name = "mobilellm/improve-weights"

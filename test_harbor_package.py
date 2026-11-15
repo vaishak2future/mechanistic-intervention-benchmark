@@ -27,6 +27,12 @@ class HarborPackageTests(unittest.TestCase):
             for path in (task / "environment").iterdir():
                 self.assertNotIn("private-only-sentinel", path.read_text())
             self.assertFalse((task / "environment/train.py").exists())
+            self.assertTrue((task / "environment/submit.py").is_file())
+            config = (task / "task.toml").read_text()
+            for number in range(1, 11):
+                self.assertIn(f'"/workspace/submission/weights.{number:02d}"', config)
+            self.assertIn('"/workspace/submission/manifest.json"', config)
+            self.assertNotIn('"/workspace/submission"', config)
             self.assertNotIn("baseline.json", (task / "environment/Dockerfile").read_text())
             with self.assertRaises(ValueError):
                 package(root / "output", holdout, cache)

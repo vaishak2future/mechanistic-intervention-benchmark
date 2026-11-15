@@ -1,0 +1,5 @@
+name: mobilellm-transfer-check-v1
+install_cmd: "true"
+final_output: /logs
+run_cmd: >-
+  bash -lc 'mkdir -p /logs && python /bundle/mobilellm-transfer-check-v1/submit_base.py "{problem_statement_path}" > /logs/submission.json'

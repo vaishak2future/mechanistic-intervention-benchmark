@@ -11,5 +11,5 @@ RUN python /task/download_model.py robbiemu/MobileLLM-R1-950M-mlx-fp16 --revisio
 
 ENV HF_HUB_OFFLINE=1 VLLM_NO_USAGE_STATS=1
 ENV VLLM_CACHE_ROOT=/cache/vllm TORCHINDUCTOR_CACHE_DIR=/cache/inductor TRITON_CACHE_DIR=/cache/triton
-COPY eval.py tasks.json prepare.py warm_eval.py ready.py /task/
+COPY eval.py tasks.json prepare.py warm_eval.py ready.py submit.py /task/
 WORKDIR /workspace

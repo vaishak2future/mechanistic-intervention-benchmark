@@ -20,7 +20,7 @@ def main():
     # Infrastructure errors must fail the verifier, not masquerade as a zero score.
     candidate = Path("/candidate")
     try:
-        stage_checkpoint(Path("/base"), Path("/workspace/submission/model.safetensors"), candidate)
+        stage_checkpoint(Path("/base"), Path("/workspace/submission"), candidate)
     except ValueError as error:
         write_json(reports / "summary.json", {"valid_submission": False, "error": str(error)})
         (reports / "reward.txt").write_text(f"{-baseline['score']}\n")
