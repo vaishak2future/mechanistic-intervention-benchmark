@@ -126,12 +126,23 @@ def trace_section(path, started_at):
             for field in ('stdout', 'stderr', 'message'):
                 if result.get(field):
                     content += f'<h3>{field}</h3>' + code(result[field])
-        entries.append(details(title, content))
+        entries.append((action['time'], details(title, content)))
+    messages = []
+    for event in events:
+        if event['event'] == 'agent_message':
+            elapsed = max(0, event['time'] - started_at)
+            timing = ('Archived after run; original timestamp unavailable' if event.get('archived_after_run')
+                      else f'{int(elapsed // 60)}:{int(elapsed % 60):02d}')
+            message = escape(event['message']).replace('\n', '<br>')
+            messages.append(f'<article><h3>Agent update · {timing}</h3><p>{message}</p></article>')
     for event in unmatched:
-        entries.append(details('Unpaired trace result', code(json.dumps(event, indent=2))))
+        entries.append((event['time'], details('Unpaired trace result', code(json.dumps(event, indent=2)))))
     return (f'<h2 id="trace">Agent trace · {len(actions)} actions</h2>'
-            '<p class="muted">Public action summaries, commands, and outputs. Times are relative to agent start; command durations may overlap.</p>'
-            + ''.join(entries))
+            '<p class="muted">Public agent updates, action summaries, commands, and outputs; private internal reasoning is not exposed. Times are relative to agent start; command durations may overlap.</p>'
+            + f'<h3 id="agent-messages">Agent messages · {len(messages)}</h3>'
+            + (''.join(messages) or '<p class="muted">No public agent messages were recorded for this run.</p>')
+            + '<h3>Commands and outputs</h3>'
+            + ''.join(content for _, content in sorted(entries, key=lambda entry: entry[0])))
 
 
 def render_report(run, task_path=None):
@@ -145,7 +156,7 @@ def render_report(run, task_path=None):
     delta = 100 * (submission['score'] - baseline['score'])
     content = ('<h1>MobileLLM evaluation</h1>'
                f'<p class="muted">Hidden holdout · {len(submission["tasks"])} tasks · {total} samples · {escape(state["gpu"])}</p>'
-               '<nav><a href="#tasks">Task results</a> · <a href="#trace">Agent trace</a> · <a href="#protocol">Protocol</a></nav>'
+               '<nav><a href="#tasks">Task results</a> · <a href="#agent-messages">Agent messages</a> · <a href="#trace">Command trace</a> · <a href="#protocol">Protocol</a></nav>'
                '<table><thead><tr><th>Baseline</th><th>Submission</th><th>Change</th></tr></thead>'
                f'<tbody><tr><td>{percent(baseline["score"])}</td><td><strong>{percent(submission["score"])}</strong></td><td>{delta:+g} pp</td></tr></tbody></table>')
     if failures:
@@ -156,6 +167,9 @@ def render_report(run, task_path=None):
                 '<p>Scores are mean per-task sample success. Baseline and submission use the same evaluator, task data, and sampling settings; the baseline may be cached. Sample numbers are within-run indices, not matched random trials.</p>'
                 '<p class="muted">One small smoke run, not a leaderboard ranking. Multiple samples of the same task are not independent benchmark tasks. Agent-created transfer checks are development evidence, not additional hidden evaluation.</p>'
                 f'<p>Image: <code>{escape(state["image_id"])}</code></p>')
+    agent = state.get('agent', {})
+    content += f"<p>Agent model: <code>{escape(agent.get('model', 'Not recorded'))}</code> · Reasoning: {escape(agent.get('reasoning_effort', 'Not recorded'))}</p>"
+    content += f"<p>Task setup: {escape(state.get('task_setup', 'Original scaffolded setup'))}</p>"
     if 'preparation_seconds' in state:
         content += f'<p>Preparation before the agent clock: {state["preparation_seconds"]:.1f}s.</p>'
     content += '<p>Presentation references: <a href="https://inspect.aisi.org.uk/log-viewer.html">Inspect sample viewer</a> · <a href="https://www.swebench.com/">SWE-bench results</a>.</p>'

@@ -13,7 +13,7 @@ class ReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             run = Path(directory)
             (run / 'reports').mkdir()
-            (run / 'state.json').write_text('{"gpu":"H100","image_id":"image"}')
+            (run / 'state.json').write_text('{"gpu":"H100","image_id":"image","agent":{"model":"gpt-6.1-sol","reasoning_effort":"high"}}')
             task = {"task_id":"H01", "category":"tool_choice", "samples":[
                 {"passed":False,"reason":"wrong tool", "output":"<script>alert(1)</script>"}]}
             for kind, score in [('baseline',0), ('submission',1)]:
@@ -21,6 +21,8 @@ class ReportTests(unittest.TestCase):
                 (run / f'reports/{kind}.json').write_text(json.dumps({'score':score,'tasks':[task]}))
             output = render_report(run).read_text()
             self.assertIn('+100 pp', output)
+            self.assertIn('gpt-6.1-sol', output)
+            self.assertIn('Reasoning: high', output)
             self.assertIn('Sample 1', output)
             self.assertIn('&lt;script&gt;', output)
             self.assertNotIn('<script>', output)
@@ -32,6 +34,7 @@ class ReportTests(unittest.TestCase):
             events = [
                 {'event':'action','time':1,'action_id':'a','note':'First','command':['first']},
                 {'event':'action','time':2,'action_id':'b','note':'Second','command':['second']},
+                {'event':'agent_message','time':1.5,'message':'Public update <safe>'},
                 {'event':'result','time':3,'action_id':'b','stdout':'SECOND OUTPUT','exit_code':0},
                 {'event':'result','time':4,'action_id':'a','stdout':'FIRST OUTPUT','exit_code':0},
             ]
@@ -39,6 +42,10 @@ class ReportTests(unittest.TestCase):
             output = trace_section(path, 0)
             self.assertLess(output.index('FIRST OUTPUT'), output.index('Second'))
             self.assertGreater(output.index('SECOND OUTPUT'), output.index('Second'))
+            self.assertIn('Public update &lt;safe&gt;', output)
+            self.assertLess(output.index('Public update'), output.index('Second'))
+            self.assertIn('Agent messages · 1', output)
+            self.assertLess(output.index('Public update'), output.index('Commands and outputs'))
 
     def test_recorded_smoke_totals(self):
         run = Path('runs/smoke-10m')

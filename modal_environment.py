@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC_FILES = ("eval.py", "TASK.txt", "tasks.json", "environment.py", "grade_checkpoint.py",
-                "train.py", "train.jsonl", "prepare.py", "warm_eval.py", "download_model.py")
+                "prepare.py", "warm_eval.py", "download_model.py")
 
 
 def save_state(run: Path, state: dict) -> None:
@@ -60,12 +60,14 @@ def build(modal, options):
     app = modal.App.lookup("mobilellm-lab", create_if_missing=True)
     with modal.enable_output():
         image = build_image(modal, options.model, options.revision, options.hf_secret).build(app=app)
-    save_state(options.run, {"image_id": image.object_id, "gpu": "H100", "status": "built"})
+    save_state(options.run, {"image_id": image.object_id, "gpu": "H100", "status": "built", "task_setup": "weights-dev-eval-v2"})
     print(f"Prepared H100 image: {image.object_id}. No agent timer has started.")
 
 
 def start(modal, options):
     state = json.loads((options.run / "state.json").read_text())
+    if not options.agent_model.strip() or not options.agent_reasoning.strip():
+        raise ValueError("Record an explicit agent model and reasoning effort before starting.")
     if state["status"] != "built":
         raise ValueError("Build a fresh run before starting its agent.")
     if not 1 <= options.seconds <= 72000:
@@ -80,6 +82,9 @@ def start(modal, options):
     sandbox = create_sandbox(modal, app, image, "H100", options.seconds + 3600,
                              {"/workspace": volume})
     try:
+        if state.get("task_setup") == "weights-dev-eval-v2":
+            run_command(sandbox, ["python", "-c",
+                "from pathlib import Path; assert not Path('/task/train.py').exists(); assert not Path('/task/train.jsonl').exists()"], 30)
         # Warm in the same live process that the agent will use, before its clock.
         run_command(sandbox, ["bash", "-lc",
             "nohup python /task/warm_eval.py --serve > /tmp/warm-eval.log 2>&1 < /dev/null & echo $! > /tmp/warm-eval.pid"], 30)
@@ -95,6 +100,8 @@ def start(modal, options):
         timer = enforce_deadline.spawn(sandbox.object_id, deadline)
         state.update(sandbox_id=sandbox.object_id, volume_name=volume_name,
                      status="running", started_at=started, deadline=deadline,
+                     agent={"model": options.agent_model, "reasoning_effort": options.agent_reasoning,
+                            "runner": "codex-subagent", "resolved_revision": None},
                      timer_id=timer.object_id, preparation_seconds=time.monotonic() - preparing)
         save_state(options.run, state)
     except BaseException:
@@ -146,6 +153,7 @@ def submit(modal, run: Path, state: dict) -> None:
         raise
     else:
         state["status"] = "submitted"
+        state["submitted_at"] = time.time()
     finally:
         sandbox.terminate(wait=True)
         save_state(run, state)
@@ -226,6 +234,8 @@ def parse_options():
     prepare.add_argument("--hf-secret", help="Modal secret containing HF_TOKEN; only used during download")
     launch = commands.add_parser("start")
     launch.add_argument("--seconds", type=int, default=3600)
+    launch.add_argument("--agent-model", required=True, help="Exact model identifier passed to the agent runner")
+    launch.add_argument("--agent-reasoning", required=True, help="Reasoning effort passed to the agent runner")
     execute = commands.add_parser("exec")
     execute.add_argument("command", nargs=argparse.REMAINDER)
     commands.add_parser("submit")

@@ -15,10 +15,12 @@ def main():
     lines = ['MobileLLM: one-agent, 10-minute smoke run',
              'Trace contains public action summaries and executed commands, not private reasoning.',
              f"GPU: {state['gpu']} | Image: {state['image_id']}",
+             f"Agent: {state.get('agent', {}).get('model', 'Not recorded')} | Reasoning: {state.get('agent', {}).get('reasoning_effort', 'Not recorded')}",
              f"Preparation outside agent budget: {state.get('preparation_seconds', 0):.1f}s", '']
     for event in sorted(events, key=lambda event: event['time']):
         elapsed = event['time'] - state['started_at']
-        lines.append(f"[{elapsed:7.1f}s] {event['event'].upper()}")
+        timestamp = 'archived after run; original timestamp unavailable' if event.get('archived_after_run') else f'{elapsed:7.1f}s'
+        lines.append(f"[{timestamp}] {event['event'].upper()}")
         for key in ('note', 'command', 'remaining_seconds', 'duration_seconds', 'exit_code', 'message'):
             if event.get(key) is not None:
                 value = json.dumps(event[key]) if key == 'command' else event[key]

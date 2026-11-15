@@ -24,6 +24,8 @@ class ModalEnvironmentTests(unittest.TestCase):
         self.assertEqual(calls[-1].kwargs['gpu'], 'H100')
         self.assertNotIn('tasks_holdout.json', PUBLIC_FILES)
         self.assertNotIn('watchdog.py', PUBLIC_FILES)
+        self.assertNotIn('train.py', PUBLIC_FILES)
+        self.assertNotIn('train.jsonl', PUBLIC_FILES)
 
     def test_sandbox_is_offline_and_bounded(self):
         modal = MagicMock()
@@ -50,9 +52,11 @@ class ModalEnvironmentTests(unittest.TestCase):
                 self.assertEqual(events, ['launch', 'ready'])
                 return 1000
             with patch.dict('sys.modules', {'watchdog':timer_module}), patch('modal_environment.create_sandbox', return_value=sandbox), patch('modal_environment.run_command', side_effect=lambda *args: events.append('launch' if not events else 'ready')), patch('modal_environment.time.time', side_effect=now):
-                start(MagicMock(), Namespace(run=run, seconds=60))
+                start(MagicMock(), Namespace(run=run, seconds=60, agent_model="gpt-6.1-sol", agent_reasoning="high"))
             state = json.loads((run / 'state.json').read_text())
             self.assertEqual(state['deadline'], 1060)
+            self.assertEqual(state['agent']['model'], 'gpt-6.1-sol')
+            self.assertEqual(state['agent']['reasoning_effort'], 'high')
             timer_module.enforce_deadline.spawn.assert_called_once_with('sandbox', 1060)
 
     def test_failed_readiness_does_not_start_timer(self):
@@ -63,7 +67,7 @@ class ModalEnvironmentTests(unittest.TestCase):
             timer = MagicMock()
             with patch.dict('sys.modules', {'watchdog':timer}), patch('modal_environment.create_sandbox', return_value=sandbox), patch('modal_environment.run_command', side_effect=RuntimeError('warmup failed')):
                 with self.assertRaisesRegex(RuntimeError, 'warmup failed'):
-                    start(MagicMock(), Namespace(run=run, seconds=60))
+                    start(MagicMock(), Namespace(run=run, seconds=60, agent_model="gpt-6.1-sol", agent_reasoning="high"))
             sandbox.terminate.assert_called_once_with(wait=True)
             timer.enforce_deadline.spawn.assert_not_called()
 

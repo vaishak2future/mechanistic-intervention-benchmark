@@ -20,13 +20,14 @@ add `--hf-secret <Modal-secret-name>` containing `HF_TOKEN`; this secret is used
 only by the download layer, never injected into the agent sandbox.
 
 The image includes pinned vLLM, PEFT, and Accelerate, the base checkpoint, public
-tasks, starter training data, and small scripts. Its H100 build step must pass:
+tasks and evaluation scripts. No training recipe or example training answers are included. Its H100 build step must pass:
 
-1. One LoRA optimizer step with finite loss.
-2. Merge and save as a full safetensors checkpoint, reload, and generate.
-3. Load vLLM, compile kernels, capture CUDA graphs, and generate.
-4. Evaluate all development tasks, saving raw samples and failure reasons.
-5. Sleep/wake the engine and generate again.
+1. Load vLLM, compile kernels, capture CUDA graphs, and generate.
+2. Evaluate all development tasks, saving raw samples and failure reasons.
+3. Sleep/wake the engine and generate again.
+
+These are inference readiness checks; the agent chooses and implements its own
+weight-improvement method. Training is not preconfigured or smoke-tested for it.
 
 Failures abort the build. `/prepared/readiness.json` records versions, GPU,
 source revision, cache file count, and preparation duration.
@@ -37,9 +38,9 @@ runs. Build time is billable preparation time, outside the agent budget.
 ## Start a prepared session
 
 ```sh
-python modal_environment.py --run runs/h100 start --seconds 3600
+python modal_environment.py --run runs/h100 start --seconds 3600 --agent-model gpt-6.1-sol --agent-reasoning high
 python modal_environment.py --run runs/h100 exec cat /task/TASK.txt
-python modal_environment.py --run runs/h100 exec python /task/train.py --steps 100
+python modal_environment.py --run runs/h100 exec ls /workspace
 ```
 
 Starting creates an offline H100 sandbox with a private workspace Volume. Before
@@ -55,6 +56,15 @@ Give the external agent `/task/TASK.txt` and a command tool connected to the
 `exec` subcommand. Do not expose the operator's shell, this repository, Modal
 credentials, hidden tasks, or grade/stop commands to the evaluated agent.
 The agent controller itself is not included; connect your preferred agent.
+Starting requires an explicit model ID and reasoning effort. These are recorded
+in run state and reports; the caller must pass the identical values to its runner.
+A backend snapshot revision is left unknown unless the runner exposes it. The
+smoke runner uses a fresh-context Codex subagent with explicit model overrides.
+Route commands through `agent_command.py --run RUN --note 'action summary' -- COMMAND`.
+Record public agent updates with `agent_command.py --run RUN --message 'progress update'`.
+The runner must forward these updates; the command wrapper cannot capture text
+sent through another channel. Reports show updates alongside commands and outputs,
+without private internal reasoning.
 
 ## Warmup limits
 
@@ -132,7 +142,7 @@ by explicit build/start/grade commands, not module imports or local tests.
 python -m unittest -v
 ```
 
-These small tests check data, grading, masking, isolation, and timer ordering.
+These small tests check data, grading, isolation, and timer ordering.
 Actual CUDA readiness and baseline numbers require the remote image build.
 The earlier Docker launcher remains available in `environment.py`, but the
 prepared H100 workflow above is the supported path for this experiment.

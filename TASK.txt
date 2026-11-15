@@ -1,38 +1,30 @@
-Improve MobileLLM's weights so it performs better at tool calling on unseen tasks.
+Improve the supplied MobileLLM weights for tool calling on unseen tasks.
+Choose your own approach within the time budget provided by the operator.
 
-Everything is prepared on an H100. Start with:
-  cat /prepared/readiness.json
-  cat /prepared/baseline.json
-  python /task/train.py --steps 100 --output /workspace/submission
+Available resources:
+- /base: starting model weights and tokenizer.
+- /task/tasks.json: development tasks with expected results.
+- /task/eval.py: development evaluator.
+- /workspace: writable storage on an H100.
+- PyTorch, Transformers, PEFT, Accelerate, and vLLM are installed.
+- Network access is disabled.
 
-/base contains the starting weights and tokenizer. /workspace is writable and
-persists in Modal storage. /task/tasks.json contains development examples.
-/task/train.jsonl supplies ten starter answers for those same examples.
-The baseline report includes each generated answer and its failure reason.
-You may edit scripts, generate more training data, and change training settings.
-The starter uses LoRA and saves full merged weights. Its prompt tokens are masked
-out of the training loss. It is a starting recipe, not a promise of improvement.
+Evaluation:
+  python /task/eval.py --model /path/to/checkpoint --tasks /task/tasks.json --report /workspace/evaluation.json
 
-Development evaluation:
-  python /task/warm_eval.py --report /workspace/base-eval.json
-  python /task/eval.py --model /workspace/submission --tasks /task/tasks.json --report /workspace/candidate-eval.json
-
-The first command uses the already warmed base-model engine. It sleeps between
-requests to free GPU memory for training. Compilation caches are prepared in
-/cache. CUDA graphs are retained in the live base engine, not stored as files.
-A new process or a different checkpoint may still load weights and capture graphs.
-Network access is off. PyTorch, Transformers, PEFT, Accelerate, and vLLM are ready.
+Compilation caches are prepared. The base model also has a resident evaluation
+engine, accessible through /task/warm_eval.py; it sleeps between requests.
+The prepared development baseline is in /prepared/baseline.json.
+No training script, example training answers, or optimization recipe is provided.
 
 Submission:
-Finish writing /workspace/submission/model.safetensors and tell the operator.
-Submission ends your run. Save full merged weights; adapters and pickle files
-are not accepted. Only that safetensors file is used. The original configuration,
-tokenizer, chat template, and evaluator remain fixed for grading.
+Save full model weights to /workspace/submission/model.safetensors and tell the
+operator when ready. Only this file is accepted; the original model configuration,
+tokenizer, chat template, and evaluator are fixed. Submission ends the run.
 
 Scoring:
-A separate evaluator tests hidden tasks, four samples each. Call tasks require
-exactly one correctly named JSON tool call with matching arguments. No-call
-tasks require no calls and specified answer text. Truncated outputs fail.
-Your score is mean task success; improvement is submitted score minus baseline
-on the same hidden tasks. The agent clock starts after readiness; the operator
-provides the duration and enforces its deadline outside this sandbox.
+Hidden tasks are evaluated with four samples each. A call task requires exactly
+one JSON tool call with the correct name and matching arguments. A no-call task
+requires no tool call and specified answer text. Truncated samples fail.
+The score is mean task success. Improvement is the submitted score minus the
+starting model's score on the same hidden tasks.

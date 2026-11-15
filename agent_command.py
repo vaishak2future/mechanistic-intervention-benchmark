@@ -18,6 +18,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--note", help="Brief action summary for the visible trace")
+    parser.add_argument("--message", help="Public progress update to include in the trace")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     options = parser.parse_args()
     state = json.loads((options.run / "state.json").read_text())
@@ -27,6 +28,11 @@ def main() -> None:
     command = options.command
     if command[:1] == ["--"]:
         command = command[1:]
+    if options.message:
+        record(options.run, {"event": "agent_message", "message": options.message})
+        if not command:
+            print(f"Time remaining: {remaining}s")
+            return
     action_id = uuid.uuid4().hex
     record(options.run, {"event": "action", "action_id": action_id, "note": options.note,
                          "command": command, "remaining_seconds": remaining})

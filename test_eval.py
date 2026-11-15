@@ -3,9 +3,10 @@
 import io
 import json
 import unittest
+from unittest.mock import MagicMock
 from contextlib import redirect_stdout
 
-from eval import SampleResult, TaskResult, grade_sample, parse_calls, print_report
+from eval import SampleResult, TaskResult, grade_sample, parse_calls, print_report, render_prompt
 
 
 class EvaluationTests(unittest.TestCase):
@@ -68,6 +69,14 @@ class EvaluationTests(unittest.TestCase):
                      "sample 3: FAIL — truncated", "sample 4: PASS — ok",
                      "TOTAL 0.5/1", "50.0%"]:
             self.assertIn(line, report)
+
+    def test_ignored_tool_schemas_are_added_to_the_prompt(self):
+        task = {"messages": [{"role":"user", "content":"Check the weather"}],
+                "tools": [{"type":"function", "function":{"name":"get_weather"}}]}
+        tokenizer = MagicMock()
+        tokenizer.apply_chat_template.side_effect = lambda messages, **kwargs: json.dumps(messages)
+        self.assertIn('get_weather', render_prompt(tokenizer, task))
+        self.assertEqual(len(task['messages']), 1)
 
 
 if __name__ == "__main__":
