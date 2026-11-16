@@ -1,22 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="390" viewBox="0 0 900 390" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="440" viewBox="0 0 900 440" role="img" aria-labelledby="title description">
 <title id="title">Mechanistic Intervention Benchmark: 45-minute pilot</title>
-<desc id="description">Mean scores out of 100: Sol 9.09, Astra 4.55, Opus 0, Sonnet 0. Two trials per model; dots show individual trials, not confidence intervals.</desc>
-<rect width="900" height="390" fill="#fbfaf7" rx="16"/>
+<desc id="description">Mean scores out of 100: Sol 9.09, Astra 4.55, Opus 0, Sonnet 0, Inkling 0. Two trials per model; dots show individual trials, not confidence intervals.</desc>
+<rect width="900" height="440" fill="#fbfaf7" rx="16"/>
 <g font-family="system-ui, sans-serif" fill="#242c28">
 <text x="32" y="40" font-size="22" font-weight="650">Repairing reasoning loops</text>
 <text x="32" y="66" font-size="13" fill="#667069">45-minute budget · one H100 · two trials per agent system</text>
-<line x1="210.0" y1="100" x2="210.0" y2="295" stroke="#e0e4dc"/>
-<text x="210.0" y="317" font-size="12" text-anchor="middle" fill="#667069">0</text>
-<line x1="328.0" y1="100" x2="328.0" y2="295" stroke="#e0e4dc"/>
-<text x="328.0" y="317" font-size="12" text-anchor="middle" fill="#667069">20</text>
-<line x1="446.0" y1="100" x2="446.0" y2="295" stroke="#e0e4dc"/>
-<text x="446.0" y="317" font-size="12" text-anchor="middle" fill="#667069">40</text>
-<line x1="564.0" y1="100" x2="564.0" y2="295" stroke="#e0e4dc"/>
-<text x="564.0" y="317" font-size="12" text-anchor="middle" fill="#667069">60</text>
-<line x1="682.0" y1="100" x2="682.0" y2="295" stroke="#e0e4dc"/>
-<text x="682.0" y="317" font-size="12" text-anchor="middle" fill="#667069">80</text>
-<line x1="800.0" y1="100" x2="800.0" y2="295" stroke="#e0e4dc"/>
-<text x="800.0" y="317" font-size="12" text-anchor="middle" fill="#667069">100</text>
+<line x1="210.0" y1="100" x2="210.0" y2="345" stroke="#e0e4dc"/>
+<text x="210.0" y="367" font-size="12" text-anchor="middle" fill="#667069">0</text>
+<line x1="328.0" y1="100" x2="328.0" y2="345" stroke="#e0e4dc"/>
+<text x="328.0" y="367" font-size="12" text-anchor="middle" fill="#667069">20</text>
+<line x1="446.0" y1="100" x2="446.0" y2="345" stroke="#e0e4dc"/>
+<text x="446.0" y="367" font-size="12" text-anchor="middle" fill="#667069">40</text>
+<line x1="564.0" y1="100" x2="564.0" y2="345" stroke="#e0e4dc"/>
+<text x="564.0" y="367" font-size="12" text-anchor="middle" fill="#667069">60</text>
+<line x1="682.0" y1="100" x2="682.0" y2="345" stroke="#e0e4dc"/>
+<text x="682.0" y="367" font-size="12" text-anchor="middle" fill="#667069">80</text>
+<line x1="800.0" y1="100" x2="800.0" y2="345" stroke="#e0e4dc"/>
+<text x="800.0" y="367" font-size="12" text-anchor="middle" fill="#667069">100</text>
 <text x="32" y="129" font-size="14">GPT-6.1 Sol</text>
 <rect x="210" y="113" width="53.63636363636364" height="22" fill="#3e7464" rx="3"/>
 <circle cx="317.27272727272725" cy="120" r="4" fill="#fbfaf7" stroke="#315d50" stroke-width="2"/>
@@ -37,6 +37,11 @@
 <circle cx="210.0" cy="270" r="4" fill="#fbfaf7" stroke="#315d50" stroke-width="2"/>
 <circle cx="210.0" cy="278" r="4" fill="#fbfaf7" stroke="#315d50" stroke-width="2"/>
 <text x="837" y="279" font-size="14" font-weight="600" text-anchor="end">0.00</text>
-<text x="505" y="342" font-size="13" text-anchor="middle">Net improvement / 100</text>
-<text x="32" y="372" font-size="12" fill="#667069">Bars: trial mean. Dots: individual trials. A small pilot, not a statistically established ranking.</text>
+<text x="32" y="329" font-size="14">Inkling-2-Small (256K)</text>
+<rect x="210" y="313" width="0.0" height="22" fill="#3e7464" rx="3"/>
+<circle cx="210.0" cy="320" r="4" fill="#fbfaf7" stroke="#315d50" stroke-width="2"/>
+<circle cx="210.0" cy="328" r="4" fill="#fbfaf7" stroke="#315d50" stroke-width="2"/>
+<text x="837" y="329" font-size="14" font-weight="600" text-anchor="end">0.00</text>
+<text x="505" y="392" font-size="13" text-anchor="middle">Net improvement / 100</text>
+<text x="32" y="422" font-size="12" fill="#667069">Bars: trial mean. Dots: individual trials. A small pilot, not a statistically established ranking.</text>
 </g></svg>

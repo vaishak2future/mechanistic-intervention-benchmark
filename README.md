@@ -62,13 +62,13 @@ Hidden evaluation distinguishes local gains from unseen repairs, and penalizes b
 - **Rankings are preliminary.** Two trials per system and eleven baseline failures produce coarse scores and substantial uncertainty. The observed differences do not establish a stable ranking.
 - **Harness and strategy matter.** Codex and Claude Code differ, and agents may finish before the budget expires. Results compare complete agent systems under the offered budget, not isolated model ability or equal amounts of work.
 - **The zero floor creates a risk incentive.** A damaging patch and an unchanged model can both score zero. One Opus trace explicitly used this floor to justify a risky submission. Regression diagnostics expose the difference, but do not remove the incentive.
-- **Transfer remains unproven.** None of the initial eight completed submissions repaired a hidden transfer case. This is an observed outcome on four cases, not proof that constrained repair cannot generalize.
+- **Transfer remains unproven.** One of ten completed submissions repaired a hidden transfer case, but also broke a previously correct control. This is an observed outcome on four transfer cases, not evidence of reliable generalization.
 
 The supported claim is that this pilot tests whether agents can turn model investigation into constrained repairs that generalize while preserving existing behavior. It is a feasibility study of that capability, not a comprehensive mechanistic-interpretability benchmark.
 
 ## Results
 
-**Eight completed trials, two per agent system, with a 45-minute maximum per trial.** These are the frozen `submission-45m` dataset runs with `bounded-net-improvement-v2` scoring. Ten-minute smoke tests and older versions are excluded. Inkling-2-Small's two attempted comparable trials failed before grading because the agent exceeded the model's context window. They have no benchmark scores and are excluded from averages.
+**Ten completed trials, two per agent system, with a 45-minute maximum per trial.** These use the frozen `submission-45m` dataset and `bounded-net-improvement-v2` scorer. The two Inkling-2-Small trials were added after the initial eight, using its 256K endpoint and corrected context/compaction settings; the task and scorer were unchanged. Ten-minute smoke tests, older task versions, and two earlier Inkling context-window failures are excluded. Those infrastructure failures have no benchmark scores.
 
 ![Mean and individual trial scores on the 0–100 scale](submission/results.svg)
 
@@ -78,9 +78,9 @@ The supported claim is that this pilot tests whether agents can turn model inves
 | GPT-6 Astra | Codex | 9.09 | 0.00 | **4.55** | 44m 40s / 43m 38s |
 | Claude Opus 5.5 | Claude Code | 0.00 | 0.00 | **0.00** | 24m 41s / 10m 23s |
 | Claude Sonnet 5.5 | Claude Code | 0.00 | 0.00 | **0.00** | 42m 52s / 34m 13s |
-| Inkling-2-Small | Claude Code via Tinker | API failure | API failure | — | ~17m49s / ~22m09s before failure |
+| Inkling-2-Small (256K) | Claude Code via Tinker | 0.00 | 0.00 | **0.00** | 24m 34s / 37m 37s |
 
-The time budget is a maximum, not a requirement to use every minute. Completed-trial times above are Valkyrie's `agent_run_duration`, rounded to the nearest second; setup and verification are excluded. Failed Inkling attempts report `generation_elapsed_seconds` instead. All eight completed submissions passed patch validation.
+The time budget is a maximum, not a requirement to use every minute. Completed-trial times above are Valkyrie's `agent_run_duration`, rounded to the nearest second; setup and verification are excluded. All ten completed submissions passed patch validation; both Inkling agents chose to submit before the deadline.
 
 | System / trial | Repair / 7 | Transfer / 4 | Controls retained / 6 | Regressions | Score / 100 |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -92,16 +92,20 @@ The time budget is a maximum, not a requirement to use every minute. Completed-t
 | Opus 2 | 0 | 0 | 6 | 0 | 0.00 |
 | Sonnet 1 | 0 | 0 | 6 | 0 | 0.00 |
 | Sonnet 2 | 2 | 0 | 4 | 2 | 0.00 |
+| Inkling 1 (256K) | 0 | 0 | 6 | 0 | 0.00 |
+| Inkling 2 (256K) | 0 | 1 | 5 | 1 | 0.00 |
 
-Sonnet's second trial illustrates why repair alone is insufficient: two recovered failures were offset by two broken controls. None of the eight trials solved a hidden transfer case. Sol's two trials also differ materially; two trials do not establish a reliable ordering between models.
+Sonnet's second trial illustrates why repair alone is insufficient: two recovered failures were offset by two broken controls. Inkling's second trial recovered one transfer case but broke one control, also scoring zero. Sol's two trials differ materially; two trials do not establish a reliable ordering between models.
 
-These are **agent-system comparisons**, not an isolated model comparison: OpenAI models use Codex 0.169.0 (`codex-looping-v3`); Anthropic models use Claude Code 2.1.325 (`claude-looping-v3`). Both are configured for high reasoning effort with delegated agents disabled. Exact requested IDs are `gpt-6.1-sol`, `gpt-6-astra`, `anthropic/claude-opus-5-5`, and `anthropic/claude-sonnet-5-5`. Inkling uses `thinkingmachines/Inkling-2-Small` with `tinker-looping-v1`. Different harnesses and early stopping can affect outcomes.
+These are **agent-system comparisons**, not an isolated model comparison: OpenAI models use Codex 0.169.0 (`codex-looping-v3`); Anthropic models use Claude Code 2.1.325 (`claude-looping-v3`). Both are configured for high reasoning effort with delegated agents disabled. Exact requested IDs are `gpt-6.1-sol`, `gpt-6-astra`, `anthropic/claude-opus-5-5`, and `anthropic/claude-sonnet-5-5`. The completed Inkling trials use `thinkingmachines/Inkling-2-Small:peft:262144` through Claude Code 2.1.325 (`tinker-looping-v2`), with high effort, a 262,144-token context limit, a 16,384-token output cap, and automatic compaction configured with a 180,000-token window and an 80% threshold. A separate preflight verified a 120K-token request and two automatic compactions before launch. Different harnesses and early stopping can affect outcomes.
 
 ## What the traces show
 
-Across the eight completed 45-minute trials, the agents did considerably more than guess an ablation. They wrote additional test prompts, swept attention and MLP branch gains, and used gradients to find components that might help the model close its reasoning block and produce a correct answer. Six submitted patches included neuron edits; the other two changed one attention branch or one attention head. Yet attractive intermediate results repeatedly failed the next check: a lower diagnostic loss did not reliably produce better answers, batched screening sometimes disagreed with the fixed single-input evaluator, and combinations of individually useful edits could break arithmetic controls. Astra also tested heads that attended strongly to earlier copies of repeated phrases, then rejected those interventions when correct completion did not improve. These traces show active hypothesis testing and intervention search, but not a demonstrated identification of a looping circuit.
+Across the initial eight completed trials with 45-minute budgets, the agents did considerably more than guess an ablation. They wrote additional test prompts, swept attention and MLP branch gains, and used gradients to find components that might help the model close its reasoning block and produce a correct answer. Six submitted patches included neuron edits; the other two changed one attention branch or one attention head. Yet attractive intermediate results repeatedly failed the next check: a lower diagnostic loss did not reliably produce better answers, batched screening sometimes disagreed with the fixed single-input evaluator, and combinations of individually useful edits could break arithmetic controls. Astra also tested heads that attended strongly to earlier copies of repeated phrases, then rejected those interventions when correct completion did not improve. These traces show active hypothesis testing and intervention search, but not a demonstrated identification of a looping circuit.
 
-The clearest lesson is the gap between a convincing local repair and a useful unseen repair. Sol's first trial repeatedly pruned neurons and softened gains to recover controls; its final patch repaired two hidden failures without breaking a control, scoring 18.18. Astra's second trial improved the public dev score from 2/6 to 4/6 with one branch edit, yet repaired no hidden failures. Sonnet's second trial repaired two hidden failures but broke two controls, leaving its net score at zero. Several traces also distinguish stopping from succeeding: outputs can terminate and still emit Python, malformed tool calls, or the wrong answer format. None of the eight submissions solved a hidden transfer case. This pilot therefore exposes fragile, example-dependent gains and a real preservation tradeoff, rather than a general loop repair. With two trials per system, different Codex and Claude Code harnesses, and some agents finishing early, these observations support further experiments rather than a stable ranking of model ability.
+The clearest lesson is the gap between a convincing local repair and a useful unseen repair. Sol's first trial repeatedly pruned neurons and softened gains to recover controls; its final patch repaired two hidden failures without breaking a control, scoring 18.18. Astra's second trial improved the public dev score from 2/6 to 4/6 with one branch edit, yet repaired no hidden failures. Sonnet's second trial repaired two hidden failures but broke two controls, leaving its net score at zero. Several traces also distinguish stopping from succeeding: outputs can terminate and still emit Python, malformed tool calls, or the wrong answer format. None of those initial eight submissions solved a hidden transfer case. This pilot therefore exposes fragile, example-dependent gains and a real preservation tradeoff, rather than a general loop repair. With two trials per system, different Codex and Claude Code harnesses, and some agents finishing early, these observations support further experiments rather than a stable ranking of model ability.
+
+The later Inkling trials reinforce the development-to-hidden gap. Trial 1 halved layer 3’s attention branch, improving dev from 2/6 to 4/6 but recovering no hidden failures. Trial 2 disabled attention heads 12 and 13 in layer 21, improving dev to 3/6; it recovered one hidden transfer case but broke one control. Both completed without context errors and scored zero net improvement.
 
 [Trace evidence and an incentive to revisit](submission/qualitative-findings.md).
 
@@ -115,7 +119,7 @@ The neighboring public controls include simple arithmetic without tool schemas. 
 
 ## Traces and run IDs
 
-[Browse the unified messages, tools, submitted patches, and scores in Docent](https://docent.transluce.org/dashboard/7d91092d-61e3-4f81-abd8-8b7f9f0c6a52). Access may require the team's permissions. The collection also contains smoke runs; use the **45-minute budget** labels for the table above. The transcript shows recorded public agent messages and tool events; hidden reasoning is not reconstructed.
+[Browse the unified messages, tools, submitted patches, and scores in Docent](https://docent.transluce.org/dashboard/7d91092d-61e3-4f81-abd8-8b7f9f0c6a52). Access may require the team's permissions. The collection also contains smoke runs; use the **45-minute budget** labels and **Inkling 2 Small (256K)** for the table above. The earlier failed Inkling attempts remain in the collection for provenance. The transcript shows recorded public agent messages and tool events; hidden reasoning is not reconstructed.
 
 | System | Trial 1 Valkyrie run | Trial 2 Valkyrie run |
 | --- | --- | --- |
@@ -123,7 +127,8 @@ The neighboring public controls include simple arithmetic without tool schemas. 
 | Astra | `0f6c6d5a-8f05-43b2-a2a6-c241909c47f1` | `a6d94fc1-f78c-42b6-a7dd-4b4cfcb512a5` |
 | Opus | `fa60d4b5-426d-466c-9c61-ad6a908d14a5` | `e44dc606-e0ee-4b97-955b-f9a58bab5d2d` |
 | Sonnet | `d216ae90-1499-41a0-b9e6-2da9c4f6add2` | `6a5436c6-0df9-40d6-982d-e20cc152041c` |
-| Inkling, API failures | `0eebc983-0acb-4770-8d1f-2fc371dfbefe` | `d6d862a4-d956-46b6-9bf3-965bebfddbac` |
+| Inkling (256K) | `1155f0a7-79d9-4766-b1a2-e4cbca7cd03a` | `67d66995-a1c3-4173-8c97-071257bb2793` |
+| Inkling, earlier API failures (unscored) | `0eebc983-0acb-4770-8d1f-2fc371dfbefe` | `d6d862a4-d956-46b6-9bf3-965bebfddbac` |
 
 ## Run the benchmark
 
@@ -142,7 +147,7 @@ valkyrie run start --agent codex-looping-v3 \
 valkyrie tui
 ```
 
-Use `claude-looping-v3`, an Anthropic model ID, and `-s ANTHROPIC_API_KEY anthropic-api-key` for an Anthropic trial. The Inkling configuration is retained for provenance but failed on context-window limits and is not recommended for these runs. Each command starts one trial; repeat it to obtain two independent agent executions. Do not mix task versions or time budgets in one aggregate.
+Use `claude-looping-v3`, an Anthropic model ID, and `-s ANTHROPIC_API_KEY anthropic-api-key` for an Anthropic trial. For Inkling, use `tinker-looping-v2`, model `thinkingmachines/Inkling-2-Small:peft:262144`, and `-s TINKER_API_KEY tinker-api-key`. The earlier `tinker-looping-v1` configuration used the smaller context endpoint and failed before grading. Each command starts one trial; repeat it to obtain two independent agent executions. Do not mix task versions or time budgets in one aggregate.
 
 For maintainers with the private holdout and calibration artifacts, assemble a fresh Harbor package:
 
